@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+*.egg-info/
+.pytest_cache/
+
+# Experiments / models (generated at runtime)
+experiments/
+*.pt
+*.bin
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Logs
+*.log
+server.log
