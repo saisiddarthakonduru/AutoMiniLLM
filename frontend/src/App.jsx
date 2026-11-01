@@ -47,6 +47,15 @@ export default function App() {
   });
   const [selected, setSelected] = useState({ a: "", b: "" });
   const [comparison, setComparison] = useState(null);
+  const [copiedId, setCopiedId] = useState(null);
+
+  const copyId = (id) => {
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(id);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 1500);
+    }
+  };
 
   const refresh = useCallback(async () => {
     try {
@@ -57,7 +66,13 @@ export default function App() {
       ]);
       setSystem(sys);
       setModels(mods);
-      setHistory(hist.experiments || []);
+      const exps = hist.experiments || [];
+      setHistory(exps);
+      setSelected((prev) => {
+        const nextA = prev.a && exps.some((x) => x.id === prev.a) ? prev.a : (exps[0]?.id || "");
+        const nextB = prev.b && exps.some((x) => x.id === prev.b) ? prev.b : (exps[1]?.id || exps[0]?.id || "");
+        return { a: nextA, b: nextB };
+      });
       setForm((f) => (f.model ? f : { ...f, model: mods.default || "" }));
     } catch (e) {
       setError(String(e.message || e));
@@ -394,7 +409,21 @@ export default function App() {
                         key={h.id}
                         className={selected.a === h.id || selected.b === h.id ? "selected-row" : ""}
                       >
-                        <td className="label-cell"><b>{h.label}</b></td>
+                        <td className="label-cell">
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <b>{h.label}</b>
+                            {selected.a === h.id && <span className="selection-pill a" title="Selected as Experiment A">A</span>}
+                            {selected.b === h.id && <span className="selection-pill b" title="Selected as Experiment B">B</span>}
+                          </div>
+                          <div
+                            className="id-subtext"
+                            title={`Click to copy ID: ${h.id}`}
+                            onClick={() => copyId(h.id)}
+                          >
+                            <code>{h.id}</code>
+                            <span className="copy-icon">{copiedId === h.id ? "✓ Copied" : "📋"}</span>
+                          </div>
+                        </td>
                         <td><span className="mode-badge">{h.mode}</span></td>
                         <td>{fmt(h.ram_mb)}</td>
                         <td><b style={{ color: "#38bdf8" }}>{fmt(h.ram_compression_ratio)}×</b></td>
@@ -408,6 +437,22 @@ export default function App() {
                         <td>{fmt(h.achieved_sparsity, 1)}%</td>
                         <td>
                           <div className="action-cell">
+                            <button
+                              type="button"
+                              className={`chip-btn ${selected.a === h.id ? "chip-active-a" : ""}`}
+                              title="Set as Experiment A for comparison"
+                              onClick={() => setSelected((s) => ({ ...s, a: h.id }))}
+                            >
+                              {selected.a === h.id ? "✓ A" : "Set A"}
+                            </button>
+                            <button
+                              type="button"
+                              className={`chip-btn ${selected.b === h.id ? "chip-active-b" : ""}`}
+                              title="Set as Experiment B for comparison"
+                              onClick={() => setSelected((s) => ({ ...s, b: h.id }))}
+                            >
+                              {selected.b === h.id ? "✓ B" : "Set B"}
+                            </button>
                             <button
                               type="button"
                               className="chip-btn"
@@ -445,17 +490,45 @@ export default function App() {
             )}
 
             <div className="compare-bar">
-              <input
-                placeholder="Experiment A id"
-                value={selected.a}
-                onChange={(e) => setSelected((s) => ({ ...s, a: e.target.value }))}
-              />
-              <input
-                placeholder="Experiment B id"
-                value={selected.b}
-                onChange={(e) => setSelected((s) => ({ ...s, b: e.target.value }))}
-              />
-              <button className="btn" onClick={doCompare}>
+              <div className="compare-picker">
+                <span className="compare-label-tag tag-a">A</span>
+                <select
+                  value={selected.a}
+                  onChange={(e) => setSelected((s) => ({ ...s, a: e.target.value }))}
+                  aria-label="Experiment A"
+                >
+                  <option value="">-- Choose Experiment A --</option>
+                  {history.map((h) => (
+                    <option key={h.id} value={h.id}>
+                      {h.label} ({h.mode}) — PPL: {fmt(h.perplexity, 1)} — RAM: {fmt(h.ram_mb, 1)}MB
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <span className="vs-badge">VS</span>
+
+              <div className="compare-picker">
+                <span className="compare-label-tag tag-b">B</span>
+                <select
+                  value={selected.b}
+                  onChange={(e) => setSelected((s) => ({ ...s, b: e.target.value }))}
+                  aria-label="Experiment B"
+                >
+                  <option value="">-- Choose Experiment B --</option>
+                  {history.map((h) => (
+                    <option key={h.id} value={h.id}>
+                      {h.label} ({h.mode}) — PPL: {fmt(h.perplexity, 1)} — RAM: {fmt(h.ram_mb, 1)}MB
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                className="btn compare-btn"
+                onClick={doCompare}
+                disabled={!selected.a || !selected.b}
+              >
                 Compare A vs B
               </button>
             </div>
